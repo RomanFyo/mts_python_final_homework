@@ -4,8 +4,10 @@ anyio==4.12.1
 asttokens==3.0.1
 asyncpg==0.31.0
 certifi==2026.1.4
+cffi==2.0.0
 click==8.3.1
 colorama==0.4.6
+cryptography==46.0.6
 executing==2.2.1
 fastapi==0.128.1
 greenlet==3.3.1
@@ -18,10 +20,12 @@ iniconfig==2.3.0
 orjson==3.11.7
 packaging==26.0
 pluggy==1.6.0
+pycparser==3.0
 pydantic==2.12.5
 pydantic-settings==2.13.1
 pydantic_core==2.41.5
 Pygments==2.19.2
+PyJWT==2.12.1
 pytest==9.0.2
 pytest-asyncio==1.3.0
 python-dotenv==1.2.1

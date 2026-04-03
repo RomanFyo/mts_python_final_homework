@@ -6,14 +6,24 @@ __all__ = [
     "IncomingBook",
     "ReturnedBook",
     "ReturnedAllBooks",
+    "ReturnedSellersBook",
+    "UpdateBook"
 ]
-
 
 # Базовый класс "Книги", содержащий поля, которые есть во всех классах-наследниках.
 class BaseBook(BaseModel):
     title: str
     author: str
     year: int
+    seller_id: int
+
+
+# Класс для обработки входных данных для обновления данных о книге
+class UpdateBook(BaseModel):
+    title: str
+    author: str
+    year: int
+    pages: int
 
 
 # Класс для обработки входных данных для частичного обновления данных о книге
@@ -48,3 +58,10 @@ class ReturnedBook(BaseBook):  # {"id": 1, "title": "Clean Code", ....}
 # Класс для возврата массива объектов "Книга"
 class ReturnedAllBooks(BaseModel):
     books: list[ReturnedBook]
+
+
+class ReturnedSellersBook(BaseModel):
+    title: str
+    author: str
+    year: int
+    pages: int

@@ -14,9 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from src.configurations.settings import settings
-from src.models import books  # noqa
-from src.models.base import BaseModel
-from src.models.books import Book  # noqa F401
+from src.models import BaseModel, Seller
 
 # Переопределяем движок для запуска тестов и подключаем его к тестовой базе.
 # Это решает проблему с сохранностью данных в основной базе приложения.
@@ -90,3 +88,17 @@ async def async_client(test_app):
     transport = httpx.ASGITransport(app=test_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as test_client:
         yield test_client
+
+
+@pytest_asyncio.fixture(scope="function")
+async def seller(db_session):
+    seller = Seller(
+        first_name="Vasya",
+        last_name="Pupkin",
+        e_mail="mail@gmail.com",
+        password="1234"
+    )
+    db_session.add(seller)
+    await db_session.flush()
+
+    return seller
