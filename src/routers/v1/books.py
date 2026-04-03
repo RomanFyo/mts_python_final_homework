@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.configurations.database import get_async_session
 from src.schemas import IncomingBook, PatchBook, ReturnedAllBooks, ReturnedBook
-from src.services import BookService
+from src.services import BookService, SellerService
 
 books_router = APIRouter(prefix="/books", tags=["books"])
 
@@ -15,11 +15,16 @@ DBSession = Annotated[AsyncSession, Depends(get_async_session)]
 @books_router.get("/", response_model=ReturnedAllBooks)
 async def get_all_books(session: DBSession):
     books = await BookService(session).get_all_books()
+    print(books)
     return {"books": books}
 
 
 @books_router.post("/", response_model=ReturnedBook, status_code=status.HTTP_201_CREATED)
 async def create_book(book: IncomingBook, session: DBSession):
+    seller = await SellerService(session).get_single_seller(book.seller_id)
+    if book.seller_id is not None and seller is None:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+
     new_book = await BookService(session).add_book(book)
 
     return new_book
@@ -57,6 +62,7 @@ async def update_book(book_id: int, new_book_data: ReturnedBook, session: DBSess
 
 @books_router.patch("/{book_id}", response_model=ReturnedBook)
 async def patch_book(book_id: int, patched_book: PatchBook, session: DBSession):
+    # todo: прописать проверку, что есть нужный seller_id
     book = await BookService(session).partial_update_book(book_id, patched_book)
 
     if not book:

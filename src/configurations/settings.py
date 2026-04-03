@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     db_name: str
     db_username: str
     db_password: str
+    jwt_secret_key: str
+    access_token_expire_minutes: int
     db_test_name: str = "fastapi_project_test_db"
     max_connection_count: int = 10
 
