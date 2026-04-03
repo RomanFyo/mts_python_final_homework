@@ -1,6 +1,4 @@
-from typing import List
-
-from sqlalchemy import String, ForeignKey, Column, Integer
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -16,11 +14,10 @@ class Book(BaseModel):
     author: Mapped[str] = mapped_column(String(50), nullable=False)
     year: Mapped[int] = mapped_column(nullable=True)
     pages: Mapped[int]
-    # todo: проверить, что данные изменения нормально работают
 
     seller_id: Mapped[int] = mapped_column(
         ForeignKey("sellers_table.id"),
-        nullable=True
+        nullable=False
     )
 
     seller: Mapped["Seller"] = relationship(back_populates="books")

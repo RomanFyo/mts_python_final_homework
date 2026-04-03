@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 import jwt
 from sqlalchemy import select
 
+from src.configurations.settings import settings
 from src.models import Seller
 from src.schemas import UserAuthData
-from src.configurations.settings import settings
 
 __all__ = [
     "AuthService"
@@ -49,5 +49,17 @@ class AuthService:
             algorithms=["HS256"]
         )
         return decoded
+
+    async def check_authorization(self, seller_id: int | None, token: str) -> bool:
+        payload = self.decode_jwt(
+            token=token
+        )
+        seller = await self.session.get(Seller, seller_id)
+        if seller and payload.get("e_mail") == seller.e_mail:
+            return True
+        return False
+
+
+
 
 

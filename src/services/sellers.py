@@ -1,16 +1,14 @@
-# todo: дописать бизнес-логику
-
-__all__ = ["SellerService"]
-
-
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Book, Seller
 from src.schemas import BaseSeller, IncomingSeller
 
+__all__ = ["SellerService"]
+
+
 class SellerService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession) -> tuple[Seller, list[Book]] | None:
         self.session = session
 
     async def get_single_seller(self, seller_id: int) -> tuple[Seller, list[Book]] | None:
@@ -49,11 +47,12 @@ class SellerService:
         seller = await self.session.get(Seller, seller_id)
 
         if seller:
-            await self.session.delete(seller)
-
             # удаление книг, связанных с селлером
             query = delete(Book).where(Book.seller_id == seller.id)
             await self.session.execute(query)
+
+            # удаление самого селлера
+            await self.session.delete(seller)
 
             return True
 

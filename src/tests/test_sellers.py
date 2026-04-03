@@ -1,15 +1,3 @@
-# todo: написать тесты для sellers
-
-# todo: нужно написать следующие тесты:
-#  -------------------------------------- 1. тест на то, что селлера можно добавить
-#  -------------------------------------- 2. тест на то, что всех селлеров можно вернуть и что в возврате нет поля password
-#  -------------------------------------- 3. тест на то, что одного продавца можно вернуть и что в возврате нет поля password
-#  --------------------------------------    - тест, что seller_id is wrong
-#  -------------------------------------- 4. тест на то, что данные о продавце можно обновить, если продавец действительно есть
-#  -------------------------------------- 5. тест не то, что реального продавца можно удалить
-#  --------------------------------------    - тест, что seller_id is wrong
-#  6. тест на то, что при удалении seller все связанные с ним books тоже удаляются
-
 import pytest
 from fastapi import status
 from sqlalchemy import select
@@ -17,6 +5,18 @@ from sqlalchemy import select
 from src.models import Book, Seller
 
 API_V1_URL_PREFIX = "/api/v1/sellers"
+
+# функция для получения токена
+async def get_token(async_client, e_mail, password):
+    authorization_response = await async_client.post(
+        f"/api/v1/token/",
+        json={
+            "e_mail": e_mail,
+            "password": password
+        }
+    )
+    token = authorization_response.json().get("access_token")
+    return token
 
 # тест на ручку, создающую селлера
 @pytest.mark.asyncio()
@@ -93,19 +93,29 @@ async def test_get_single_seller(db_session, async_client):
         e_mail="mail@gmail.com",
         password="1234"
     )
+    seller2 = Seller(
+        first_name="Ivan",
+        last_name="Ivanov",
+        e_mail="mail2@gmail.com",
+        password="1234"
+    )
 
     # добавим сначала продавца и сделаем flush, так как иначе не получится добавить книги с seller.id
-    db_session.add(seller)
+    db_session.add_all([seller, seller2])
     await db_session.flush()
 
     book1 = Book(author="Pushkin", title="Eugeny Onegin", year=2021, pages=104, seller_id=seller.id)
     book2 = Book(author="Lermontov", title="Mziri", year=2021, pages=108, seller_id=seller.id)
-    book3 = Book(author="Mitchell", title="Gone with the Wind", year=2021, pages=868)
+    book3 = Book(author="Mitchell", title="Gone with the Wind", year=2021, pages=868, seller_id=seller2.id)
 
     db_session.add_all([book1, book2, book3])
     await db_session.flush()
 
-    response = await async_client.get(f"{API_V1_URL_PREFIX}/{seller.id}")
+    token = await get_token(async_client, "mail@gmail.com", "1234")
+    response = await async_client.get(
+        f"{API_V1_URL_PREFIX}/{seller.id}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == status.HTTP_200_OK
 
@@ -142,7 +152,11 @@ async def test_get_single_seller_with_invalid_id(db_session, async_client):
     db_session.add(seller)
     await db_session.flush()
 
-    response = await async_client.get(f"{API_V1_URL_PREFIX}/12345678")
+    token = await get_token(async_client, "mail@gmail.com", "1234")
+    response = await async_client.get(
+        f"{API_V1_URL_PREFIX}/12345678",
+        headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -229,13 +243,20 @@ async def test_books_related_to_seller_deleted(db_session, async_client):
         password="1234"
     )
 
+    seller2 = Seller(
+        first_name="Ivan",
+        last_name="Ivanov",
+        e_mail="mail2@gmail.com",
+        password="1234"
+    )
+
     # добавим сначала продавца и сделаем flush, так как иначе не получится добавить книги с seller.id
-    db_session.add(seller)
+    db_session.add_all([seller, seller2])
     await db_session.flush()
 
     book1 = Book(author="Pushkin", title="Eugeny Onegin", year=2021, pages=104, seller_id=seller.id)
     book2 = Book(author="Lermontov", title="Mziri", year=2021, pages=108, seller_id=seller.id)
-    book3 = Book(author="Mitchell", title="Gone with the Wind", year=2021, pages=868)
+    book3 = Book(author="Mitchell", title="Gone with the Wind", year=2021, pages=868, seller_id=seller2.id)
 
     db_session.add_all([book1, book2, book3])
     await db_session.flush()

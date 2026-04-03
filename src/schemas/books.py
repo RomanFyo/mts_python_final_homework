@@ -6,7 +6,8 @@ __all__ = [
     "IncomingBook",
     "ReturnedBook",
     "ReturnedAllBooks",
-    "ReturnedSellersBook"
+    "ReturnedSellersBook",
+    "UpdateBook"
 ]
 
 # Базовый класс "Книги", содержащий поля, которые есть во всех классах-наследниках.
@@ -14,7 +15,15 @@ class BaseBook(BaseModel):
     title: str
     author: str
     year: int
-    seller_id: int | None = None
+    seller_id: int
+
+
+# Класс для обработки входных данных для обновления данных о книге
+class UpdateBook(BaseModel):
+    title: str
+    author: str
+    year: int
+    pages: int
 
 
 # Класс для обработки входных данных для частичного обновления данных о книге
@@ -23,7 +32,6 @@ class PatchBook(BaseModel):
     author: str | None = None
     year: int | None = None
     pages: int | None = None
-    seller_id: int | None = None
 
 
 # Класс для валидации входящих данных. Не содержит id так как его присваивает БД.

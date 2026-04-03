@@ -1,17 +1,19 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.configurations.database import get_async_session
 from src.schemas import (BaseSeller, IncomingSeller, ReturnedAllSellers,
                          ReturnedSellerWithBooks, ReturnedSellerWithPassword)
-from src.services import SellerService
-
+from src.services import AuthService, SellerService
 
 sellers_router = APIRouter(prefix="/sellers", tags=["sellers"])
 
 DBSession = Annotated[AsyncSession, Depends(get_async_session)]
+
+http_bearer = HTTPBearer()
 
 @sellers_router.get("/", response_model=ReturnedAllSellers)
 async def get_all_sellers(session: DBSession):
@@ -19,15 +21,25 @@ async def get_all_sellers(session: DBSession):
     return {"sellers": sellers}
 
 @sellers_router.get("/{seller_id}", response_model=ReturnedSellerWithBooks)
-async def get_single_seller(seller_id: int, session: DBSession):
-    seller = await SellerService(session).get_single_seller(seller_id)
+async def get_single_seller(
+        seller_id: int,
+        session: DBSession,
+        credentials: HTTPAuthorizationCredentials = Depends(http_bearer)
+):
+    seller_info = await SellerService(session).get_single_seller(seller_id)
 
-    if seller is None:
+    # проверка, что селлер с указанным id действительно есть
+    if seller_info is None:
         return Response(status_code=status.HTTP_404_NOT_FOUND)
 
+    # проверка доступа по токену
+    token = credentials.credentials
+    if not await AuthService(session).check_authorization(seller_id, token):
+        return Response(status_code=status.HTTP_401_UNAUTHORIZED)
+
     return {
-        **seller[0].__dict__,
-        "books": seller[1]
+        **seller_info[0].__dict__,
+        "books": seller_info[1]
     }
 
 @sellers_router.post("/", response_model=ReturnedSellerWithPassword, status_code=status.HTTP_201_CREATED)

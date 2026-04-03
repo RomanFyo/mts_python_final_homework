@@ -1,23 +1,40 @@
 import pytest
 from fastapi import status
-from icecream import ic
 from sqlalchemy import select
 
-from src.models import Book, Seller
+from src.models import Book
 
 API_V1_URL_PREFIX = "/api/v1/books"
 
+# функция для получения токена
+async def get_token(async_client, e_mail, password):
+    authorization_response = await async_client.post(
+        f"/api/v1/token/",
+        json={
+            "e_mail": e_mail,
+            "password": password
+        }
+    )
+    token = authorization_response.json().get("access_token")
+    return token
 
 # Тест на ручку создающую книгу
 @pytest.mark.asyncio()
-async def test_create_book(async_client):
+async def test_create_book(db_session, async_client, seller):
     data = {
         "title": "Clean Architecture",
         "author": "Robert Martin",
         "count_pages": 300,
         "year": 2025,
+        "seller_id": seller.id
     }
-    response = await async_client.post(f"{API_V1_URL_PREFIX}/", json=data)
+
+    token = await get_token(async_client, "mail@gmail.com", "1234")
+    response = await async_client.post(
+        f"{API_V1_URL_PREFIX}/",
+        json=data,
+        headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == status.HTTP_201_CREATED
 
@@ -31,30 +48,37 @@ async def test_create_book(async_client):
         "author": "Robert Martin",
         "pages": 300,
         "year": 2025,
-        "seller_id": None
+        "seller_id": seller.id
     }
 
 
 @pytest.mark.asyncio()
-async def test_create_book_with_old_year(async_client):
+async def test_create_book_with_old_year(async_client, seller):
     data = {
         "title": "Clean Architecture",
         "author": "Robert Martin",
         "count_pages": 300,
         "year": 1986,
+        "seller_id": seller.id
     }
-    response = await async_client.post(f"{API_V1_URL_PREFIX}/", json=data)
+
+    token = await get_token(async_client, "mail@gmail.com", "1234")
+    response = await async_client.post(
+        f"{API_V1_URL_PREFIX}/",
+        json=data,
+        headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 # Тест на ручку получения списка книг
 @pytest.mark.asyncio()
-async def test_get_books(db_session, async_client):
+async def test_get_books(db_session, async_client, seller):
     # Создаем книги вручную, а не через ручку, чтобы нам не попасться на ошибку которая
     # может случиться в POST ручке
-    book = Book(author="Pushkin", title="Eugeny Onegin", year=2021, pages=104)
-    book_2 = Book(author="Lermontov", title="Mziri", year=2021, pages=108)
+    book = Book(author="Pushkin", title="Eugeny Onegin", year=2021, pages=104, seller_id=seller.id)
+    book_2 = Book(author="Lermontov", title="Mziri", year=2021, pages=108, seller_id=seller.id)
 
     db_session.add_all([book, book_2])
     await db_session.flush()
@@ -74,7 +98,7 @@ async def test_get_books(db_session, async_client):
                 "year": 2021,
                 "id": book.id,
                 "pages": 104,
-                "seller_id": None
+                "seller_id": seller.id
             },
             {
                 "title": "Mziri",
@@ -82,7 +106,7 @@ async def test_get_books(db_session, async_client):
                 "year": 2021,
                 "id": book_2.id,
                 "pages": 108,
-                "seller_id": None
+                "seller_id": seller.id
             },
         ]
     }
@@ -90,11 +114,11 @@ async def test_get_books(db_session, async_client):
 
 # Тест на ручку получения одной книги
 @pytest.mark.asyncio()
-async def test_get_single_book(db_session, async_client):
+async def test_get_single_book(db_session, async_client, seller):
     # Создаем книги вручную, а не через ручку, чтобы нам не попасться на ошибку которая
     # может случиться в POST ручке
-    book = Book(author="Pushkin", title="Eugeny Onegin", year=2001, pages=104)
-    book_2 = Book(author="Lermontov", title="Mziri", year=1997, pages=104)
+    book = Book(author="Pushkin", title="Eugeny Onegin", year=2001, pages=104, seller_id=seller.id)
+    book_2 = Book(author="Lermontov", title="Mziri", year=1997, pages=104, seller_id=seller.id)
 
     db_session.add_all([book, book_2])
     await db_session.flush()
@@ -110,15 +134,15 @@ async def test_get_single_book(db_session, async_client):
         "year": 2001,
         "pages": 104,
         "id": book.id,
-        "seller_id": None
+        "seller_id": seller.id
     }
 
 
 @pytest.mark.asyncio()
-async def test_get_single_book_with_wrong_id(db_session, async_client):
+async def test_get_single_book_with_wrong_id(db_session, async_client, seller):
     # Создаем книги вручную, а не через ручку, чтобы нам не попасться на ошибку которая
     # может случиться в POST ручке
-    book = Book(author="Pushkin", title="Eugeny Onegin", year=2001, pages=104)
+    book = Book(author="Pushkin", title="Eugeny Onegin", year=2001, pages=104, seller_id=seller.id)
 
     db_session.add(book)
     await db_session.flush()
@@ -130,13 +154,12 @@ async def test_get_single_book_with_wrong_id(db_session, async_client):
 
 # Тест на ручку обновления книги
 @pytest.mark.asyncio()
-async def test_update_book_with_valid_seller_id(db_session, async_client):
+async def test_update_book_with_valid_seller_id(db_session, async_client, seller):
     # Создаем книги вручную, а не через ручку, чтобы нам не попасться на ошибку которая
     # может случиться в POST ручке
-    book = Book(author="Pushkin", title="Eugeny Onegin", year=2001, pages=104)
-    seller = Seller(first_name="Vasya", last_name="Pupkin", e_mail="mail@gmail.com", password="1234")
+    book = Book(author="Pushkin", title="Eugeny Onegin", year=2001, pages=104, seller_id=seller.id)
 
-    db_session.add_all([book, seller])
+    db_session.add(book)
     await db_session.flush()
 
     data = {
@@ -144,13 +167,13 @@ async def test_update_book_with_valid_seller_id(db_session, async_client):
         "author": "Lermontov",
         "pages": 250,
         "year": 2024,
-        "id": book.id,
-        "seller_id": seller.id
     }
 
+    token = await get_token(async_client, "mail@gmail.com", "1234")
     response = await async_client.put(
         f"{API_V1_URL_PREFIX}/{book.id}",
         json=data,
+        headers={"Authorization": f"Bearer {token}"}
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -167,12 +190,11 @@ async def test_update_book_with_valid_seller_id(db_session, async_client):
 
 
 @pytest.mark.asyncio()
-async def test_delete_book(db_session, async_client):
-    book = Book(author="Lermontov", title="Mtziri", pages=510, year=2024)
+async def test_delete_book(db_session, async_client, seller):
+    book = Book(author="Lermontov", title="Mtziri", pages=510, year=2024, seller_id=seller.id)
 
     db_session.add(book)
     await db_session.flush()
-    ic(book.id)
 
     response = await async_client.delete(f"{API_V1_URL_PREFIX}/{book.id}")
 
@@ -186,8 +208,8 @@ async def test_delete_book(db_session, async_client):
 
 
 @pytest.mark.asyncio()
-async def test_delete_book_with_invalid_book_id(db_session, async_client):
-    book = Book(author="Lermontov", title="Mtziri", pages=510, year=2024)
+async def test_delete_book_with_invalid_book_id(db_session, async_client, seller):
+    book = Book(author="Lermontov", title="Mtziri", pages=510, year=2024, seller_id=seller.id)
 
     db_session.add(book)
     await db_session.flush()
@@ -200,7 +222,7 @@ async def test_delete_book_with_invalid_book_id(db_session, async_client):
 # --- ТЕСТЫ, ДОБАВЛЕННЫЕ ПРИ ВЫПОЛНЕНИИ ДОМАШНЕЙ РАБОТЫ ---
 
 @pytest.mark.asyncio()
-async def test_add_book_with_invalid_seller_id(async_client):
+async def test_add_book_with_invalid_seller_id(async_client, seller):
     """
     Тест, проверяющий, что при добавлении книги с seller_id, которого нет в таблице sellers_table,
     будет возвращен response_status 404
@@ -212,26 +234,22 @@ async def test_add_book_with_invalid_seller_id(async_client):
         "year": 2024,
         "seller_id": 1234523
     }
-    response = await async_client.post(f"{API_V1_URL_PREFIX}/", json=data)
+
+    token = await get_token(async_client, "mail@gmail.com", "1234")
+    response = await async_client.post(
+        f"{API_V1_URL_PREFIX}/",
+        json=data,
+        headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 @pytest.mark.asyncio()
-async def test_add_book_with_valid_seller_id(db_session, async_client):
+async def test_add_book_with_valid_seller_id(db_session, async_client, seller):
     """
     Тест, проверяющий, что при добавлении книги с seller_id, который есть в таблице sellers_table,
     будет возвращен response_status 201 и само добавление книги будет выполнено правильно
     """
-    seller = Seller(
-        first_name="Vasya",
-        last_name="Pupkin",
-        e_mail="mail@gmail.com",
-        password="1234"
-    )
-
-    db_session.add(seller)
-    await db_session.flush()
-
     data = {
         "author": "Lermontov",
         "title": "Mziri",
@@ -240,7 +258,12 @@ async def test_add_book_with_valid_seller_id(db_session, async_client):
         "seller_id": seller.id
     }
 
-    response = await async_client.post(f"{API_V1_URL_PREFIX}/",json=data)
+    token = await get_token(async_client, "mail@gmail.com", "1234")
+    response = await async_client.post(
+        f"{API_V1_URL_PREFIX}/",
+        json=data,
+        headers={"Authorization": f"Bearer {token}"}
+    )
 
     assert response.status_code == status.HTTP_201_CREATED
 
@@ -256,39 +279,3 @@ async def test_add_book_with_valid_seller_id(db_session, async_client):
         "year": 2024,
         "seller_id": seller.id
     }
-
-@pytest.mark.asyncio()
-async def test_update_book_with_invalid_seller_id(db_session, async_client):
-    """
-    Тест, проверяющий, что при обновлении информации о книге поле seller_id не будет обновлено,
-    если селлера с указанным seller_id нет в таблице sellers_table
-    """
-    book = Book(author="Pushkin", title="Eugeny Onegin", year=2001, pages=104)
-
-    db_session.add(book)
-    await db_session.flush()
-
-    data = {
-        "title": "Mziri",
-        "author": "Lermontov",
-        "pages": 250,
-        "year": 2024,
-        "id": book.id,
-        "seller_id": 12345678
-    }
-
-    response = await async_client.put(
-        f"{API_V1_URL_PREFIX}/{book.id}",
-        json=data,
-    )
-
-    assert response.status_code == status.HTTP_200_OK
-    await db_session.flush()
-
-    res = await db_session.get(Book, book.id)
-    assert res.title == "Mziri"
-    assert res.author == "Lermontov"
-    assert res.pages == 250
-    assert res.year == 2024
-    assert res.id == book.id
-    assert res.seller_id is None

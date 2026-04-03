@@ -1,6 +1,4 @@
-# todo: написать pydantic-модели для продавцов
-from pydantic import BaseModel, Field, field_validator
-from pydantic_core import PydanticCustomError
+from pydantic import BaseModel
 
 from . import ReturnedSellersBook
 
